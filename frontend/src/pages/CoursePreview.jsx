@@ -5,6 +5,7 @@ import { useAuth } from "../context/AuthContext";
 import API_BASE_URL from "../lib/api";
 import { Play, ChevronDown, ChevronUp, X } from "lucide-react";
 import toast from "react-hot-toast";
+import { loadRazorpayScript } from "../lib/loadRazorpay";
 /* safe getter */
 function safeGet(obj, path, fallback = undefined) {
   if (!obj || !path) return fallback;
@@ -304,30 +305,32 @@ export default function CoursePreview() {
     }
   };
 
+  const razorpayModalOpen = useRef(false);
+
   const handleRazorpayPayment = async () => {
-    if (!selectedCourse || isPurchasing) return;
+    if (!selectedCourse || isPurchasing || razorpayModalOpen.current) return;
     const token = localStorage.getItem("token");
-    const priceValue = Number(
-      selectedCourse.priceValue ??
-      selectedCourse.price?.replace("₹", "") ??
-      0
-    );
+    const priceValue = Number(selectedCourse.priceValue || 0);
+
+    setIsPurchasing(true);
+    setIsPurchasing(true);
+
+    // ✅ Load Razorpay script on demand
+    const loaded = await loadRazorpayScript();
+    if (!loaded || !window.Razorpay) {
+      toast.error("Razorpay SDK failed to load. Check your connection.");
+      setIsPurchasing(false);
+      return;
+    }
 
     try {
-      setIsPurchasing(true);
-      // 1. Create order on backend
       const res = await fetch(`${API_BASE_URL}/api/payment/razorpay/create-order`, {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
           Authorization: `Bearer ${token}`,
         },
-        body: JSON.stringify({
-          course: {
-            id: selectedCourse.id,
-            priceValue,
-          },
-        }),
+        body: JSON.stringify({ course: { id: selectedCourse.id, priceValue } }),
       });
       const orderData = await res.json();
 
@@ -335,17 +338,25 @@ export default function CoursePreview() {
         throw new Error(orderData.error || "Failed to create order");
       }
 
-      // 2. Open Razorpay checkout
+
+
+      // ✅ Snapshot course details BEFORE opening modal
+      // so React state changes don't affect the in-flight payment
+      const courseSnapshot = {
+        id: selectedCourse.id,
+        title: selectedCourse.title,
+      };
+
       const options = {
         key: import.meta.env.VITE_RAZORPAY_KEY_ID || "",
         amount: orderData.amount,
         currency: orderData.currency,
         name: "UpToSkills",
-        description: selectedCourse.title,
+        description: courseSnapshot.title,
         order_id: orderData.orderId,
         handler: async function (response) {
+          razorpayModalOpen.current = false;
           try {
-            // 3. Verify payment
             const verifyRes = await fetch(`${API_BASE_URL}/api/payment/razorpay/verify`, {
               method: "POST",
               headers: {
@@ -356,8 +367,8 @@ export default function CoursePreview() {
                 razorpay_order_id: response.razorpay_order_id,
                 razorpay_payment_id: response.razorpay_payment_id,
                 razorpay_signature: response.razorpay_signature,
-                courseId: selectedCourse.id,
-                courseTitle: selectedCourse.title,
+                courseId: courseSnapshot.id,
+                courseTitle: courseSnapshot.title,
                 userId: user?.id,
               }),
             });
@@ -366,26 +377,34 @@ export default function CoursePreview() {
             if (verifyData.success) {
               toast.success("Payment successful!");
               window.dispatchEvent(new Event("refreshNotifications"));
-              await fetchUserProfile();
-              navigate(`/learning/${selectedCourse.id}`);
+              setShowEnrollPopup(false);
+              setSelectedCourse(null);
+              // ✅ Clean up Razorpay iframe from DOM
+              const rzpContainer = document.querySelector(".razorpay-container");
+              if (rzpContainer) rzpContainer.remove();
+              // ✅ Wait for Razorpay iframe to fully close before navigating
+              setTimeout(() => {
+                navigate(`/learning/${courseSnapshot.id}`);
+              }, 500);
             } else {
               throw new Error(verifyData.error || "Payment verification failed");
             }
           } catch (err) {
             console.error("Verification error:", err);
             toast.error(err.message || "Payment verification failed");
+          } finally {
+            setIsPurchasing(false);
           }
         },
         prefill: {
-          name: user?.name || user?.firstName || "Test User",
-          email: user?.email || "test@example.com",
-          contact: user?.phone || "9876543210",
+          name: user?.name || user?.firstName || "",
+          email: user?.email || "",
+          contact: user?.phone || "9999999999",
         },
-        theme: {
-          color: "#0f766e", // teal-700
-        },
+        theme: { color: "#0f766e" },
         modal: {
           ondismiss: function () {
+            razorpayModalOpen.current = false;
             setIsPurchasing(false);
           },
         },
@@ -393,16 +412,21 @@ export default function CoursePreview() {
 
       const rzp = new window.Razorpay(options);
       rzp.on("payment.failed", function (response) {
+        razorpayModalOpen.current = false;
         toast.error("Payment failed: " + response.error.description);
+        setIsPurchasing(false);
       });
+
+      razorpayModalOpen.current = true; // ✅ Mark modal as open BEFORE rzp.open()
       rzp.open();
 
     } catch (err) {
+      // Only fires if fetch/order creation failed before modal opened
       console.error(err);
       toast.error(err.message || "Payment error");
-    } finally {
       setIsPurchasing(false);
     }
+    // ✅ No finally — intentional
   };
   if (loading) {
     return (
