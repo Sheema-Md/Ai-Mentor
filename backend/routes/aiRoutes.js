@@ -5,7 +5,7 @@ import validate from "../middleware/validate.js";
 import { generateVideoSchema } from "../schemas/aiSchema.js";
 import { getCourseAndLessonTitles } from "../controllers/courseController.js";
 import Preferences from "../models/Preference.js";
-import { videoQueue } from "../queues/videoQueue.js";
+//import { videoQueue } from "../queues/videoQueue.js";
 import dotenv from "dotenv";
 dotenv.config();
 
@@ -97,28 +97,28 @@ router.post("/generate-video", protect, validate(generateVideoSchema), async (re
 
   
     // Added to queue instead of blocking the request
-    const job = await videoQueue.add("generate-video", {
-      courseId,
-      lessonId,
-      celebrity,
-      courseTitle,
-      lessonTitle,
-      userPreferences,
-    });
+//     const job = await videoQueue.add("generate-video", {
+//       courseId,
+//       lessonId,
+//       celebrity,
+//       courseTitle,
+//       lessonTitle,
+//       userPreferences,
+//     });
 
-    console.log(`📥 Job added to queue: ${job.id}`);
+//     console.log(`📥 Job added to queue: ${job.id}`);
 
-    res.json({
-      jobId: job.id,
-      status: "processing",
-      message: "Video generation started",
-    });
+//     res.json({
+//       jobId: job.id,
+//       status: "processing",
+//       message: "Video generation started",
+//     });
 
-  } catch (error) {
-    console.error("AI GENERATE ERROR:", error);
-    res.status(500).json({ message: "Failed to generate AI video" });
-  }
-});
+//   } catch (error) {
+//     console.error("AI GENERATE ERROR:", error);
+//     res.status(500).json({ message: "Failed to generate AI video" });
+//   }
+// });
 
 // ----------------------------------------------------
 // Proxy Transcript Content from Python
