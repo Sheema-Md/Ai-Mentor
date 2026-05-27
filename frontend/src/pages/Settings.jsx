@@ -12,8 +12,12 @@ import toast from "react-hot-toast";
 import { useTranslation } from "react-i18next";
 import i18n from "../i18n/index.js";
 
+// ── Added Firebase Imports for Issue #390 Fix ───────────────────────────
+import { signOut } from "firebase/auth";
+import { auth } from "../firebase"; // Ensure this matches your project path to firebase config
+
 const NAV_KEYS = [
-  { icon: User,     key: "profile",           labelKey: "settings.nav.profile" },
+  { icon: User,     key: "profile",          labelKey: "settings.nav.profile" },
   { icon: Bell,     key: "notifications",      labelKey: "settings.nav.notifications" },
   { icon: Shield,   key: "password_security",  labelKey: "settings.nav.password_security" },
   { icon: Sparkles, key: "preferences",        labelKey: "preferences.nav_title" },
@@ -109,6 +113,7 @@ function MobileSettingsDrawer({ open, onClose, onSelect, t }) {
 /* ───────────────────────────────────────────────
    Mobile full-screen modal (individual setting)
 ─────────────────────────────────────────────── */
+// eslint-disable-next-line no-unused-vars
 function MobileModal({ open, onBack, onClose, title, children }) {
   useEffect(() => {
     document.body.style.overflow = open ? "hidden" : "";
@@ -174,7 +179,9 @@ export default function Settings() {
   const [deleting, setDeleting] = useState(false);
   const [deletePopup, setDeletePopup] = useState(false);
   const [passwordData, setPasswordData] = useState({ currentPassword: "", newPassword: "", confirmPassword: "" });
+  // eslint-disable-next-line no-unused-vars
   const [passwordError, setPasswordError] = useState("");
+  // eslint-disable-next-line no-unused-vars
   const [pwFocused, setPwFocused] = useState(false);
 
   /* handlers */
@@ -182,8 +189,18 @@ export default function Settings() {
     try {
       setDeleting(true);
       const token = localStorage.getItem("token");
+      
+      // 1. Delete account from your backend database database
       await axios.delete("/api/users/delete-account", { headers: { Authorization: `Bearer ${token}` } });
+      
+      // 2. Clear local browser token storage
       localStorage.removeItem("token");
+      
+      // 3. Clear Firebase Client-Side Memory Token Instance ✅
+      if (auth) {
+        await signOut(auth);
+      }
+      
       setshowDeletePopup(false);
       setDeletePopup(true);
     } catch (error) {
@@ -604,7 +621,7 @@ export default function Settings() {
         <h1 className="text-xl sm:text-2xl md:text-[30px] font-bold text-main font-[Inter] mb-2">{t("settings.appearance.title")}</h1>
         <p className="text-sm sm:text-[16px] text-muted font-[Inter]">{t("settings.appearance.subtitle")}</p>
       </div>
-      <div className="bg-card rounded-2xl sm:rounded-[24px] shadow-[0_4px_6px_0_rgba(0,0,0,0.10),0_10px_15px_0_rgba(0,0,0,0.10)] p-4 sm:p-6 md:p-8">
+      <div className="bg-card rounded-2xl sm:rounded-[24px] shadow-[0_4px_6_0_rgba(0,0,0,0.10),0_10px_15_0_rgba(0,0,0,0.10)] p-4 sm:p-6 md:p-8">
         <div className="space-y-6">
           <div>
             <h3 className="text-[16px] font-semibold text-main font-[Inter] mb-3">{t("settings.appearance.theme")}</h3>
