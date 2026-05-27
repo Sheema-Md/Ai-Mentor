@@ -1,4 +1,14 @@
 // frontend/src/context/AuthContext.jsx
+import React, {
+  createContext,
+  useContext,
+  useState,
+  useEffect,
+  useCallback,
+} from "react";
+import { signOut } from "firebase/auth";
+import { auth } from "../firebase";
+
 import React, { createContext, useContext, useState, useEffect, useCallback } from 'react';
 import { auth } from '../firebase.js';
 import { signOut } from 'firebase/auth';
@@ -8,29 +18,31 @@ const AuthContext = createContext();
 export const useAuth = () => {
   const context = useContext(AuthContext);
   if (!context) {
-    throw new Error('useAuth must be used within an AuthProvider');
+    throw new Error("useAuth must be used within an AuthProvider");
   }
   return context;
 };
 
 export const AuthProvider = ({ children }) => {
   const [isAuthenticated, setIsAuthenticated] = useState(() => {
-    const token = localStorage.getItem('token');
-    const storedUser = localStorage.getItem('user');
+    const token = localStorage.getItem("token");
+    const storedUser = localStorage.getItem("user");
     return !!(token && storedUser && storedUser !== "undefined");
   });
 
   const [user, setUser] = useState(() => {
-    const storedUser = localStorage.getItem('user');
+    const storedUser = localStorage.getItem("user");
     try {
-      return storedUser && storedUser !== "undefined" ? JSON.parse(storedUser) : null;
+      return storedUser && storedUser !== "undefined"
+        ? JSON.parse(storedUser)
+        : null;
     } catch {
       return null;
     }
   });
   useEffect(() => {
-    const token = localStorage.getItem('token');
-    const storedUser = localStorage.getItem('user');
+    const token = localStorage.getItem("token");
+    const storedUser = localStorage.getItem("user");
 
     if (!token || !storedUser || storedUser === "undefined") {
       setIsAuthenticated(false);
@@ -40,7 +52,7 @@ export const AuthProvider = ({ children }) => {
 
   const login = (userData) => {
     setIsAuthenticated(true);
-    
+
     // Normalize user data to ensure all required fields exist
     const newUser = {
       ...userData,
@@ -53,15 +65,15 @@ export const AuthProvider = ({ children }) => {
     };
 
     setUser(newUser);
-    localStorage.setItem('token', newUser.token);
-    localStorage.setItem('user', JSON.stringify(newUser));
+    localStorage.setItem("token", newUser.token);
+    localStorage.setItem("user", JSON.stringify(newUser));
     // Clear skip flags on every login to ensure onboarding triggers correctly
     localStorage.removeItem("preferencesSkipped");
   };
 
   const fetchUserProfile = useCallback(async () => {
     try {
-      const token = localStorage.getItem('token');
+      const token = localStorage.getItem("token");
       if (!token) return;
 
        const response = await apiFetch('/api/users/profile');
@@ -83,9 +95,12 @@ export const AuthProvider = ({ children }) => {
         localStorage.setItem("user", JSON.stringify(newUser));
       }
     } catch (error) {
-      console.error('Error fetching user profile:', error);
+      console.error("Error fetching user profile:", error);
     }
   }, []);
+
+  const logout = async () => {
+    try {
   useEffect(() => {
   if (isAuthenticated) {
     fetchUserProfile();
@@ -101,12 +116,12 @@ const logout = async () => {
 
     setIsAuthenticated(false);
     setUser(null);
-    localStorage.removeItem('token');
-    localStorage.removeItem('user');
+    localStorage.removeItem("token");
+    localStorage.removeItem("user");
 
     // Clear course progress from localStorage
-    Object.keys(localStorage).forEach(key => {
-      if (key.startsWith('course-progress-')) {
+    Object.keys(localStorage).forEach((key) => {
+      if (key.startsWith("course-progress-")) {
         localStorage.removeItem(key);
       }
     });
@@ -141,6 +156,8 @@ const logout = async () => {
     fetchUserProfile,
   };
 
+  return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;
+};
   return (
     <AuthContext.Provider value={value}>
       {children}
