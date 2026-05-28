@@ -153,14 +153,12 @@ function DiscussionsPage() {
       const action = isCurrentlyHidden ? "unhide" : "hide";
       
       await callApi(`/admin/discussions/${post.id}/${action}`, { method: "PUT" });
-
-      // Update the local screen memory to show it as hidden/unhidden, DO NOT delete it!
       setDiscussions((prev) => 
         prev.map((p) => 
           p.id === post.id ? { ...p, hiddenAt: isCurrentlyHidden ? null : new Date().toISOString() } : p
         )
       );
-      setSelected(null); // Close modal
+      setSelected(null); 
     } catch (err) {
       alert(err.message || "Failed to update visibility");
     }
@@ -169,11 +167,8 @@ function DiscussionsPage() {
   const handleDeletePost = async (id) => {
     if (!window.confirm("Are you sure you want to permanently delete this post?")) return;
     try {
-      // 1. Tell backend to delete the post
-      await callApi(`/admin/discussions/${id}`, { method: "DELETE" });
-      // Note: If your callApi uses positional parameters, use: await callApi(`/admin/discussions/${id}`, "DELETE");
-
-      // 2. Remove it from frontend view instantly without reloading
+      // Tell backend to delete the post
+      await callApi(`/admin/discussions/${id}`, { method: "DELETE" });         
       setDiscussions((prev) => prev.filter((post) => post.id !== id));
       setSelected(null);
     } catch (err) {
