@@ -17,6 +17,10 @@ AIVideo.init(
         lessonId: {
             type: DataTypes.INTEGER,
             allowNull: false,
+             references: {
+        model: "Lessons",
+        key: "id",
+    },
         },
         celebrity: {
             type: DataTypes.STRING,
