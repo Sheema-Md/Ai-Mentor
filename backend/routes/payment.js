@@ -22,8 +22,6 @@ router.post("/create-checkout-session", protect, paymentLimiter, async (req, res
   try {
     const { course } = req.body;
 
-    console.log("Incoming course:", course);
-
     // ✅ Validate course data
     if (
       !course ||
@@ -43,7 +41,6 @@ router.post("/create-checkout-session", protect, paymentLimiter, async (req, res
     // ✅ Build success URL
     const successUrl = `${process.env.FRONTEND_URL}/success?courseId=${course.id}&title=${encodeURIComponent(course.title)}`;
 
-    console.log("✅ SUCCESS URL:", successUrl); // 🔥 DEBUG
 
     const session = await stripe.checkout.sessions.create({
       payment_method_types: ["card"],

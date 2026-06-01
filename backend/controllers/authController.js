@@ -5,6 +5,7 @@ import { Op } from "sequelize";
 import sendEmail from "../utils/sendEmail.js";
 import { ensureProfileCompleteness, formatFullName } from "../utils/userUtils.js";
 import cloudinary from "../config/cloudinary.js";
+import admin from "../config/firebase.js";
 
 const generateToken = (id) => {
   return jwt.sign({ id }, process.env.JWT_SECRET, {
@@ -55,19 +56,15 @@ const login = async (req, res) => {
   const { email, password } = req.body;
 
   try {
-    console.log("Login attempt for email:", email);
     const user = await User.findOne({ where: { email } });
 
     if (!user) {
-      console.log("User not found in DB.");
       return res.status(401).json({ message: "Invalid email or password" });
     }
 
     const isMatch = await user.matchPassword(password);
-    console.log("Password match result:", isMatch);
 
     if (user && user.password && isMatch) {
-      console.log("Login successful!");
       await ensureProfileCompleteness(user);
       res.json({
         id: user.id,
@@ -98,7 +95,6 @@ const login = async (req, res) => {
           console.error("Failed to load notificationController or send login notification:", error);
         });
     } else {
-      console.log("Login failed: password mismatch.");
       res.status(401).json({ message: "Invalid email or password" });
     }
   } catch (error) {
@@ -125,7 +121,6 @@ const refreshAvatarInBackground = async (userId, googlePictureUrl) => {
     user.avatar_url = result.secure_url;
     await user.save();
     await ensureProfileCompleteness(user);
-    console.log(`Successfully refreshed/re-hosted avatar to Cloudinary for user ${userId}`);
   } catch (err) {
     console.error("Background avatar refresh failed:", err);
   }
@@ -135,23 +130,37 @@ const googleLogin = async (req, res) => {
   try {
     const { idToken } = req.body;
 
-    const payload = JSON.parse(
-      Buffer.from(idToken.split(".")[1], "base64").toString()
-    );
+    if (!idToken) {
+      return res.status(400).json({ message: "Missing ID token" });
+    }
 
-    // console.log("Google Login Payload:", JSON.stringify(payload, null, 2));
-    const uid = payload.sub;
-    const email = payload.email;
-    const name = payload.name || email.split("@")[0];
-    let firstName = payload.given_name || "";
-    let lastName = payload.family_name || "";
-    const avatar_url = payload.picture || null;
+    const decodedToken = await admin.auth().verifyIdToken(idToken);
+    if (decodedToken.aud !== process.env.FIREBASE_PROJECT_ID) {
+      return res.status(401).json({ message: "Invalid audience" });
+    }
 
-    // Fallback if given_name and family_name are missing
-    if (!firstName && !lastName && name) {
-      const nameParts = name.trim().split(/\s+/);
-      firstName = nameParts[0] || "";
-      lastName = nameParts.slice(1).join(" ") || "";
+    if (
+      decodedToken.iss !==
+      `https://securetoken.google.com/${process.env.FIREBASE_PROJECT_ID}`
+    ) {
+      return res.status(401).json({ message: "Invalid issuer" });
+    }
+
+    if (!decodedToken.email_verified) {
+      return res.status(401).json({ message: "Email not verified" });
+    }
+
+    const uid = decodedToken.uid;
+    const email = decodedToken.email?.toLowerCase();
+    const avatar_url = decodedToken.picture || null;
+
+    let firstName = "";
+    let lastName = "";
+
+    if (decodedToken.name) {
+      const parts = decodedToken.name.trim().split(/\s+/);
+      firstName = parts[0] || "";
+      lastName = parts.slice(1).join(" ") || "";
     }
     const fullName = formatFullName(firstName, lastName);
 
@@ -171,13 +180,13 @@ const googleLogin = async (req, res) => {
       });
     } else {
       let changed = false;
-      if (!user.googleId) {
+     if (!user.googleId) {
         user.googleId = uid;
         changed = true;
       }
 
-      // Pre-fill missing names/avatar from Google if they are empty
-      if (!user.firstName && firstName) {
+   // Pre-fill missing names/avatar from Google if they are empty
+     if (!user.firstName && firstName) {
         user.firstName = firstName;
         changed = true;
       }
@@ -198,7 +207,6 @@ const googleLogin = async (req, res) => {
     }
 
     await ensureProfileCompleteness(user);
-
     // 🔥 OPTIMIZATION: Flicker-Free Avatar Re-hosting
     if (avatar_url) {
       const isCurrentlyGoogleHosted = user.avatar_url?.includes("googleusercontent.com");
@@ -228,7 +236,7 @@ const googleLogin = async (req, res) => {
 
     res.json({
       id: user.id,
-      firstName: user.firstName,
+       firstName: user.firstName,
       lastName: user.lastName,
       name: user.name,
       email: user.email,
@@ -244,7 +252,10 @@ const googleLogin = async (req, res) => {
     });
   } catch (error) {
     console.error("Google login error:", error);
-    res.status(500).json({ message: "Google login failed" });
+
+    return res.status(401).json({
+      message: "Invalid or expired Google token",
+    });
   }
 };
 
