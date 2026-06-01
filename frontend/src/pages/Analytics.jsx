@@ -325,11 +325,6 @@ const Analytics = () => {
     });
   };
 
-  // const getDateKey = (day) =>
-  //   formatDateKey(
-  //     new Date(currentDate.getFullYear(), currentDate.getMonth(), day),
-  //   );
-
   const myCourses =
     user?.purchasedCourses?.map((c) => {
       const courseInfo = courses.find((course) => course.id == c.courseId);

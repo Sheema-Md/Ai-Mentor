@@ -75,7 +75,6 @@ const Dashboard = () => {
         await fetchUserProfile();
       } catch (error) {
         console.error("Error fetching dashboard data:", error);
-        console.log("Error details:", error);
       } finally {
         setLoading(false);
       }
@@ -319,7 +318,6 @@ const Dashboard = () => {
       // If the course is free, attempt enrollment first
       const priceValue = Number(course.priceValue || 0);
         if (priceValue === 0) {
-        console.log('Attempting free enrollment for', course.id);
         const res = await fetch(`${API_BASE_URL}/api/users/purchase-course`, {
           method: 'POST',
           headers: {
@@ -329,7 +327,6 @@ const Dashboard = () => {
           body: JSON.stringify({ courseId: course.id, courseTitle: course.title }),
         });
         const data = await res.json().catch(() => ({}));
-        console.log('Enroll response', res.status, data);
         // Refresh user profile so purchasedCourses is updated across the app
         if (typeof fetchUserProfile === 'function') await fetchUserProfile();
         // notify pages to refresh their course lists
@@ -676,19 +673,6 @@ const Dashboard = () => {
                 </div>
               </div>
             ) : null
-            // <div className="p-6  text-muted">
-            //   <p>
-            //     {normalizedSearchQuery
-            //       ? "No in-progress courses match your search."
-            //       : "Start Learning to get your progress tracked!"}
-            //   </p>
-            //   <button
-            //     className="mt-4 px-4 py-2 bg-teal-500 text-white text-sm font-medium rounded-lg hover:bg-teal-600"
-            //     onClick={() => navigate("/courses")}
-            //   >
-            //     My Courses
-            //   </button>
-            // </div>
             }
           </div>
         </div>
