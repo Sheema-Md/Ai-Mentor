@@ -210,20 +210,29 @@ function CoursesPage() {
   };
 
       // Debounce effect logic loop
-      useEffect(() => {
-        if (search === "") {
-          setDebouncedSearch("");
-          fetchCourses("");
-          return;
-        }
+      // Initial load on mount
+useEffect(() => {
+  fetchCourses("");
+}, []);
 
-        const timer = setTimeout(() => {
-          setDebouncedSearch(search);
-          fetchCourses(search);
-        }, 500);
+// Debounce effect for search
+    useEffect(() => {
+      if (search === "") {
+        fetchCourses("");
+        return;
+      }
 
-        return () => clearTimeout(timer);
-      }, [search]);
+      // Clear immediately and show spinner
+      setCourses([]);
+      setLoading(true);
+
+      const timer = setTimeout(() => {
+        setDebouncedSearch(search);
+        fetchCourses(search);
+      }, 500);
+
+      return () => clearTimeout(timer);
+    }, [search]);
 
   // ── Filtered + sorted courses ─────────────────────────────────────────────
   const filteredCourses = useMemo(() => {
@@ -463,7 +472,7 @@ const getRowClass = (status) => {
   return "";
 };
 
-if (loading && courses.length === 0)
+if (loading && courses.length === 0 && search === "")
   return (
     <div className="p-10 text-center text-muted">
       Loading courses...
