@@ -43,12 +43,23 @@ const formatCourse = (course) => ({
 ========================= */
 const getCourses = async (req, res) => {
   try {
-    const courses = await Course.findAll({
+    const page = parseInt(req.query.page, 10) || 1;
+    const limit = parseInt(req.query.limit, 10) || 10;
+    
+    const sanitizedPage = page > 0 ? page : 1;
+    const sanitizedLimit = limit > 0 ? limit : 10;
+    const offset = (sanitizedPage - 1) * sanitizedLimit;
+
+    const { rows } = await Course.findAndCountAll({
       where: { status: "published" },
       order: [["createdAt", "ASC"]],
+      limit: sanitizedLimit,
+      offset: offset,
     });
 
-    res.json(courses.map(formatCourse));
+    // Directly return the mapped array so the frontend doesn't break
+    res.json(rows.map(formatCourse));
+    
   } catch (error) {
     console.error("GET COURSES ERROR:", error);
     res.status(500).json({ message: "Failed to load courses" });
@@ -149,8 +160,10 @@ const purchasedCourses =
 
 const hasAccess = purchasedCourses.includes(String(course.id));
 
-// Allow admins to access
-if (!hasAccess && req.user.role !== "admin") {
+const priceValue = parseFloat(course.priceValue) || 0;
+const isFreeOrOne = priceValue <= 1;
+
+if (!hasAccess && req.user.role !== "admin" && !isFreeOrOne) {
   return res.status(403).json({
     message: "Access denied. Please purchase/enroll in this course.",
   });
