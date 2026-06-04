@@ -1,4 +1,4 @@
-import { Course, AdminNotification, Module, Lesson } from "../models/index.js";
+import { Course, AdminNotification, Module, Lesson, User } from "../models/index.js";
 
 // Valid status values
 const VALID_STATUSES = ["published", "disabled", "deleted"];
@@ -192,7 +192,6 @@ export const deleteCourseHard = async (req, res) => {
 export const getCourseEnrollments = async (req, res) => {
   try {
     const { id } = req.params;
-    const { User } = await import("../models/index.js");
 
     const allUsers = await User.findAll({
       attributes: ["id", "name", "email", "purchasedCourses"],
